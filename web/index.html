@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>Avatar Cam</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; object-fit: contain; }
+  #hud {
+    position: fixed; left: 12px; top: 12px; padding: 10px 12px;
+    font: 12px/1.6 -apple-system, sans-serif; color: #cfe; background: rgba(0,0,0,.7);
+    border: 1px solid #355; border-radius: 6px; transition: opacity .4s; white-space: pre;
+  }
+  #hud.hidden { opacity: 0; pointer-events: none; }
+  #meter { height: 6px; background: #123; margin-top: 4px; }
+  #meter i { display: block; height: 100%; width: 0; background: #3c9; }
+  #start[hidden] { display: none; }
+  #start {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: #000; color: #9cf; font: 20px -apple-system, sans-serif; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"><span id="hudText">読み込み中…</span><div id="meter"><i></i></div></div>
+<div id="start" hidden>クリックして開始（カメラ・マイクを許可）</div>
+<script type="module" src="main.js"></script>
+</body>
+</html>

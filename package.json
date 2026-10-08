@@ -1,0 +1,73 @@
+{
+  "name": "fukumen-cam",
+  "productName": "ふくめんカメラ",
+  "version": "1.0.0",
+  "description": "顔を出さずに、タイル人型やキャラのアバターとボイスチェンジャーで Zoom などに出演するためのアプリ",
+  "type": "module",
+  "main": "electron/main.js",
+  "author": "KaiTabata",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "icons": "node build/make-icons.mjs",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win"
+  },
+  "build": {
+    "appId": "dev.kaitabata.fukumencam",
+    "productName": "ふくめんカメラ",
+    "artifactName": "FukumenCam-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**",
+      "web/**",
+      "build/icon.png",
+      "build/trayTemplate*.png",
+      "package.json",
+      "LICENSE"
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "category": "public.app-category.video",
+      "icon": "build/icon.png",
+      "identity": null,
+      "hardenedRuntime": false,
+      "extendInfo": {
+        "NSCameraUsageDescription": "アバターを顔の動きに合わせるためにカメラを使います",
+        "NSMicrophoneUsageDescription": "声を加工して Zoom などに送るためにマイクを使います"
+      }
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "ふくめんカメラ",
+      "include": "build/installer.nsh",
+      "uninstallDisplayName": "ふくめんカメラ"
+    }
+  },
+  "devDependencies": {
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3"
+  }
+}

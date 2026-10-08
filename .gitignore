@@ -1,0 +1,6 @@
+.DS_Store
+node_modules/
+dist/
+settings.json
+settings-draft.json
+assets/private/

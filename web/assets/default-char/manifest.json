@@ -1,0 +1,23 @@
+{
+  "name": "AIモリモリ",
+  "images": {
+    "normal_closed": "assets/default-char/normal_closed.png",
+    "normal_open": "assets/default-char/normal_open.png",
+    "smile_closed": "assets/default-char/smile_closed.png",
+    "smile_open": "assets/default-char/smile_open.png",
+    "doya_closed": "assets/default-char/doya_closed.png",
+    "doya_open": "assets/default-char/doya_open.png",
+    "surprise_closed": "assets/default-char/surprise_closed.png",
+    "surprise_open": "assets/default-char/surprise_open.png",
+    "trouble_closed": "assets/default-char/trouble_closed.png",
+    "trouble_open": "assets/default-char/trouble_open.png",
+    "angry_closed": "assets/default-char/angry_closed.png",
+    "angry_open": "assets/default-char/angry_open.png",
+    "think_closed": "assets/default-char/think_closed.png",
+    "think_open": "assets/default-char/think_open.png",
+    "wink_closed": "assets/default-char/wink_closed.png",
+    "wink_open": "assets/default-char/wink_open.png"
+  },
+  "keyOut": true,
+  "keyTol": 60
+}

@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>Avatar Sensor</title>
+<style>body { background: #111; color: #9cf; font: 14px/1.6 -apple-system, sans-serif; padding: 16px; white-space: pre; }</style>
+</head>
+<body>
+<div id="s">起動中…</div>
+<script type="module">
+// 画面なしの Chrome で動かすページ。
+//   - カメラ: 顔の位置・人物マスクを読み取る
+//   - マイク: 声を加工して BlackHole 2ch へ出す（Zoom のマイクになる）
+// 読み取った状態は中継サーバーへ送り、OBS の描画ページが受け取る。
+import './autoreload.js';
+import { startInputs } from './inputs.js';
+import { buildVoiceChain, findDevice } from './voice.js';
+import { defaults } from './settings-schema.js';
+import { VOICE_PROFILES, profileForLook, voiceCfg } from './voiceprofile.js';
+
+// Zoom に出している見た目に合った声のプロファイルで加工する
+const applyVoice = () => {
+  const prof = profileForLook(cfg);
+  voice.profile = VOICE_PROFILES.find(p => p.id === prof)?.label ?? prof;
+  chain?.update(voiceCfg(cfg, prof));
+};
+
+const params = new URLSearchParams(location.search);
+const el = document.getElementById('s');
+const cfg = defaults();
+let cfgText = '';
+let chain = null;
+const voice = { in: '', out: '', error: '', open: false, floor: -100, thr: 0, preDb: -100, monitor: 'オフ', profile: '' };
+let inputDevices = [], outputDevices = [];
+// 仮想オーディオの機器名（マイク・モニターの選択肢からは除き、声の出力先に使う）
+const VIRTUAL = /blackhole|vb-audio|cable (input|output)/i;
+const VIRTUAL_OUT = /blackhole|cable input/i;
+let monitor = null; // { el: <audio>, gain: GainNode, sinkLabel }
+
+async function loadSettings() {
+  try {
+    const text = await (await fetch('/settings', { cache: 'no-store' })).text();
+    if (text === cfgText) return;
+    const next = { ...defaults(), ...JSON.parse(text) };
+    // マイクの選択やノイズ除去の切替は、マイクを開き直す必要があるので読み込み直す
+    if (cfgText && (next['voice.mic'] !== cfg['voice.mic'] || next['voice.noise'] !== cfg['voice.noise'])) location.reload();
+    cfgText = text;
+    Object.assign(cfg, next);
+    applyVoice();
+    applyMonitor();
+  } catch {}
+}
+
+async function startVoice() {
+  try {
+    // 機器名は許可後でないと取れないので、一度マイクを開いてから列挙する
+    (await navigator.mediaDevices.getUserMedia({ audio: true })).getTracks().forEach(t => t.stop());
+    const all = await navigator.mediaDevices.enumerateDevices();
+    inputDevices = all.filter(d => d.kind === 'audioinput' && !VIRTUAL.test(d.label)).map(d => d.label);
+    outputDevices = all.filter(d => d.kind === 'audiooutput' && !VIRTUAL.test(d.label)).map(d => d.label);
+
+    // 加工した声の出力先 = 仮想オーディオ（Mac: BlackHole 2ch、Windows: VB-CABLE の CABLE Input）
+    const sink = all.find(d => d.kind === 'audiooutput' && d.deviceId !== 'default' && d.deviceId !== 'communications' && VIRTUAL_OUT.test(d.label));
+    if (!sink) throw new Error(navigator.userAgent.includes('Windows')
+      ? '仮想オーディオ（VB-CABLE）が見つかりません。インストールしてからアプリを再起動してください'
+      : '仮想オーディオ（BlackHole 2ch）が見つかりません。インストールしてからアプリを再起動してください');
+    const micDev = cfg['voice.mic'] ? await findDevice('audioinput', cfg['voice.mic']) : null;
+    const mic = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        ...(micDev && { deviceId: { exact: micDev.deviceId } }),
+        echoCancellation: false, autoGainControl: false, noiseSuppression: cfg['voice.noise'],
+      },
+    });
+    const ctx = new AudioContext({ sinkId: sink.deviceId, latencyHint: 'interactive' });
+    chain = await buildVoiceChain(ctx, ctx.createMediaStreamSource(mic));
+    applyVoice();
+    // モニター: Zoom に送るのと同じ音を、選んだ機器（イヤホンなど）にも流す
+    const gain = new GainNode(ctx, { gain: 0 });
+    const dest = ctx.createMediaStreamDestination();
+    chain.out.connect(gain).connect(dest);
+    const el = new Audio();
+    el.srcObject = dest.stream;
+    monitor = { el, gain, sinkLabel: null };
+    applyMonitor();
+    if (ctx.state === 'suspended') await ctx.resume();
+    voice.in = mic.getAudioTracks()[0].label;
+    voice.out = sink.label;
+  } catch (e) {
+    voice.error = e.message || e.name;
+  }
+}
+
+async function applyMonitor() {
+  if (!monitor) return;
+  const on = cfg['monitor.enabled'];
+  monitor.gain.gain.value = on ? cfg['monitor.volume'] : 0;
+  const label = cfg['monitor.device'] || '';
+  if (label !== monitor.sinkLabel) {
+    monitor.sinkLabel = label;
+    // BlackHole には絶対に出さない（Zoom に二重に入るため）。見つからなければ既定の出力
+    const dev = label && !VIRTUAL.test(label) ? await findDevice('audiooutput', label) : null;
+    try { await monitor.el.setSinkId(dev ? dev.deviceId : ''); } catch (e) { console.warn(e); }
+  }
+  // 既定の出力が BlackHole になっている場合も流さない
+  const def = (await navigator.mediaDevices.enumerateDevices()).find(d => d.kind === 'audiooutput' && d.deviceId === 'default');
+  const blocked = !label && VIRTUAL.test(def?.label ?? '');
+  voice.monitor = !on ? 'オフ' : blocked ? '既定の出力が仮想オーディオのため停止中（聞く機器を選んでください）' : (label || def?.label || '既定の出力');
+  if (blocked) monitor.gain.gain.value = 0;
+  if (on && monitor.el.paused) monitor.el.play().catch(() => {});
+  if (!on && !monitor.el.paused) monitor.el.pause();
+}
+
+function toB64(u8) {
+  let s = '';
+  for (let i = 0; i < u8.length; i += 4096) s += String.fromCharCode(...u8.subarray(i, i + 4096));
+  return btoa(s);
+}
+
+await loadSettings();
+setInterval(loadSettings, 500);
+await startVoice();
+
+let sending = false;
+startInputs({}, {
+  audio: false,
+  camera: params.get('camera') !== 'off',
+  onUpdate(o) {
+    if (chain) {
+      Object.assign(voice, chain.tick());
+      voice.preDb = voice.db;
+      o.db = chain.outDb();
+    } else o.db = -100;
+    o.micStatus = voice.error ? 'エラー: ' + voice.error : voice.in;
+    el.textContent = `マイク: ${o.micStatus}\n出力: ${voice.out}\nカメラ: ${o.camStatus}\n` +
+      `加工前: ${voice.preDb.toFixed(0)} dB / 雑音: ${(voice.floor ?? -100).toFixed(0)} dB / ゲート: ${voice.open ? '開' : '閉'}\n顔: ${o.face ? 'あり' : 'なし'}`;
+    if (sending) return;
+    sending = true;
+    const body = JSON.stringify({
+      ts: Date.now(), db: o.db, camStatus: o.camStatus, micStatus: o.micStatus,
+      voice: { in: voice.in, out: voice.out, error: voice.error, open: voice.open, preDb: voice.preDb, floor: voice.floor, thr: voice.thr, monitor: voice.monitor, profile: voice.profile },
+      inputDevices, outputDevices,
+      face: o.face && { x: o.face.x, y: o.face.y, roll: o.face.roll, jaw: o.face.jaw, shapes: o.face.shapes, oval: o.face.oval },
+      mask: o.mask && { w: o.mask.w, h: o.mask.h, b64: toB64(o.mask.data) },
+    });
+    fetch('/state', { method: 'POST', body }).catch(() => {}).finally(() => { sending = false; });
+  },
+});
+</script>
+</body>
+</html>

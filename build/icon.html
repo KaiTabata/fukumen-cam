@@ -1,0 +1,24 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>icon</title>
+<style>html,body{margin:0;background:transparent}canvas{display:block}</style></head>
+<body><canvas id="c" width="1024" height="1024"></canvas>
+<script>
+// アプリアイコン（ひし形タイルの人型）。build/make-icons.mjs がこのページを透明背景で撮影する
+const c = document.getElementById('c').getContext('2d');
+const R = 1024, pad = 100, r = 185;
+c.beginPath(); c.roundRect(pad, pad, R - pad * 2, R - pad * 2, r); c.clip();
+const g = c.createRadialGradient(512, 420, 40, 512, 512, 560);
+g.addColorStop(0, '#0f2440'); g.addColorStop(1, '#02060e');
+c.fillStyle = g; c.fillRect(0, 0, R, R);
+c.strokeStyle = 'rgba(130,195,235,0.18)'; c.lineWidth = 3;
+for (let y = pad + 30; y < R - pad; y += 46) { c.beginPath(); c.moveTo(pad, y); c.lineTo(R - pad, y); c.stroke(); }
+const tile = (x, y, h, col) => { c.fillStyle = col; c.beginPath(); c.moveTo(x, y - h); c.lineTo(x + h, y); c.lineTo(x, y + h); c.lineTo(x - h, y); c.fill(); };
+c.shadowColor = 'rgba(200,240,255,0.8)'; c.shadowBlur = 24;
+const a = 44, h = a * 0.66, hx = 512, hy = 330;
+for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) tile(hx + (i - j) * a, hy + (i + j - 3) * a, h, '#3fbf98');
+const by = hy + 5 * a;
+for (let n = 0; by + n * a < R - pad + a; n++) {
+  const half = Math.min(4.1, 1.2 + n * 1.45);
+  for (let m = -Math.floor(half); m <= half; m++) if ((m + n) % 2 === 0) tile(512 + m * a, by + n * a, h, '#f0f8ff');
+}
+</script></body></html>

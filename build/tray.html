@@ -1,0 +1,13 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>tray</title>
+<style>html,body{margin:0;background:transparent}canvas{display:block}</style></head>
+<body><canvas id="c" width="64" height="64"></canvas>
+<script>
+// メニューバー（トレイ）用の小さなアイコン。黒のひし形タイルの人型（Mac ではテンプレート画像として白黒反転される）
+const c = document.getElementById('c').getContext('2d');
+const tile = (x, y, h) => { c.beginPath(); c.moveTo(x, y - h); c.lineTo(x + h, y); c.lineTo(x, y + h); c.lineTo(x - h, y); c.fill(); };
+c.fillStyle = '#000';
+const a = 6, h = 4.6;
+for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) tile(32 + (i - j) * a, 12 + (i + j) * a, h);
+for (let n = 0; n < 4; n++) for (let m = -2; m <= 2; m++) if ((m + n) % 2 === 0) tile(32 + m * a, 40 + n * a, h);
+</script></body></html>
